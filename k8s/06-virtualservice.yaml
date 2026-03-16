@@ -18,7 +18,7 @@ spec:
         host: myapp
         subset: canary
 
-  - route:                    # всё остальное
+  - route:
     - destination:
         host: myapp
         subset: stable

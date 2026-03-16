@@ -18,6 +18,7 @@ spec:
       containers:
       - name: myapp
         image: myapp:latest
+        imagePullPolicy: IfNotPresent # necessary for local images
         ports:
         - containerPort: 8000
         env:
