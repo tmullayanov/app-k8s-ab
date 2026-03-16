@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: myapp
+  namespace: ab-demo
+spec:
+  hosts:
+  - "myapp.local"
+  gateways:
+  - myapp-gateway
+  http:
+  - match:
+    - headers:
+        x-role:
+          exact: "beta_tester"
+    route:
+    - destination:
+        host: myapp
+        subset: canary
+
+  - route:                    # всё остальное
+    - destination:
+        host: myapp
+        subset: stable
