@@ -6,15 +6,17 @@ import os
 app = FastAPI(title="A/B Test Service")
 
 @app.get("/")
-async def root(req: Request, x_beta_tester: Annotated[bool, Header()] = False):
+async def root(req: Request, x_role: Annotated[str | None, Header()] = None):
     version = os.getenv("APP_VERSION", "unknown")
     print(f"Headers: {req.headers}")
-    print(f"X-Beta-Tester: {x_beta_tester}")
+    print(f"X-Role: {x_role}")
+
+    is_beta_tester = x_role == "beta_tester"
 
     return {
         "message": f"Hello from version {version} 🎉",
         "version": version,
-        "beta_tester": False   # просто для примера
+        "beta_tester": is_beta_tester
     }
 
 @app.get("/health")
