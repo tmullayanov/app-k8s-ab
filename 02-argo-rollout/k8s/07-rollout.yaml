@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: myapp:v1 # currently it's v1, but in next steps we will update it to v2
+        image: myapp:v2 # currently it's v1, but in next steps we will update it to v2
         ports:
         - containerPort: 8000
   strategy:
@@ -30,9 +30,6 @@ spec:
             - primary               # must match the name in VirtualService's http.route.name
       steps:
       - setWeight: 5
-      - pause: {duration: 300} # 5 min pause for monitoring
-      - setWeight: 20
-      - pause: {} # manual pause (promote)
-      - setWeight: 50
-      - pause: {duration: 600}
+      - pause: {duration: 10} # 10 seconds for demo purposes, but in real life it should be much longer (e.g. 1 hour) to collect enough metrics and make sure that the new version is stable
       - setWeight: 100
+      
