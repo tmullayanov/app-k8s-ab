@@ -1,5 +1,10 @@
 
-build-ab-demo:
+build-app:
+	@echo "Building the application..."
+	cd app
+	docker build -t myapp:latest .
+
+build-ab-demo: build-app
 	@echo "Building AB Demo..."
 	minikube start --cpus=4 --memory=8192   
 	istioctl install --set profile=demo -y
