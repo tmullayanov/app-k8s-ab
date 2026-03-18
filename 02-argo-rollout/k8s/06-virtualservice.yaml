@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: myapp
+  namespace: 02-rollout-demo
+spec:
+  hosts:
+  - "myapp.rollout.local"
+  gateways:
+  - myapp-rollout-gateway
+  http:
+  - name: primary # must match the name in Argo Rollout's trafficRouting.istio.virtualServices.routes
+    route:
+    - destination:
+        host: myapp-stable.02-rollout-demo.svc.cluster.local
+      weight: 100
+    - destination:
+        host: myapp-canary.02-rollout-demo.svc.cluster.local
+      weight: 0

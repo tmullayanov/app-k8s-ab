@@ -2,12 +2,29 @@
 
 This is a case-study for canary deployments in k8s/istio setups.
 
+The strategies include fully manual deployment and virtualservice updates, as well as using Argo Rollouts.
+
+Throughout the whole study, the single toy application is used.
 
 ## Toy application
 
 ```sh
-> cd app
-> docker build -t myapp:latest .
+cd app
+docker build  --build-arg APP_VERSION=v0 -t myapp:v0 .
+
+# actually, any string might be passed to the image.
+# it will be used in response of it's main endpoint.
+# k8s manifests, though, will use v1 and v2.
+```
+
+The image might be run separately.
+
+```sh
+docker run -d -p 8000:8000 myapp:v0
+
+curl http://localhost:8000/ # beta_tester: false in response
+curl -H "x-role: beta_tester" http://localhost:8000/ # beta_tester: true in response.
+
 ```
 
 ## Running in minikube
@@ -69,3 +86,10 @@ Examples of requests (change the IP:PORT of your minikube accordingly)
 ```sh
 > curl -H "Host: myapp.local" http://192.168.49.2:31962
 ```
+
+# Argo rollouts
+
+Source: https://rollouts-plugin-trafficrouter-gatewayapi.readthedocs.io/en/latest/features/header-based-routing/
+
+request: curl -H "Host: myapp.rollout.local" -H "x-role: beta_tester12" http://192.168.49.2:31962 
+
