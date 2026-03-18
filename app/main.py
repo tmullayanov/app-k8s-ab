@@ -7,7 +7,7 @@ app = FastAPI(title="A/B Test Service")
 
 @app.get("/")
 async def root(req: Request, x_role: Annotated[str | None, Header()] = None):
-    version = os.getenv("APP_VERSION", "unknown")
+    version = os.getenv("APP_VERSION", "not set")
     print(f"Headers: {req.headers}")
     print(f"X-Role: {x_role}")
 
