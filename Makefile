@@ -1,34 +1,66 @@
+# General variables
+APP_NAME        ?= myapp
+VERSIONS        ?= v1 v2
+MINIKUBE_CPUS   ?= 4
+MINIKUBE_MEMORY ?= 8192
+ISTIO_PROFILE   ?= demo
 
-build-app-v1:
-	@echo "Building the application..."
-	cd app
-	docker build --build-arg APP_VERSION=v1 -t myapp:v1 app/
-	@echo "Built v1 image successfully."
+# Namespaces
+NS_AB               ?= ab-demo
+NS_ROLLOUT          ?= rollout-demo
+NS_ROLLOUT_HEADER   ?= rollout-header-demo
 
-build-app-v2:
-	@echo "Building the application..."
-	cd app
-	docker build --build-arg APP_VERSION=v2 -t myapp:v2 app/
-	@echo "Built v2 image successfully."
+# Paths to yamls
+MANIFESTS_DIR   ?= manifests
+DIR_AB          ?= $(MANIFESTS_DIR)/01-manual-ab/k8s
+DIR_ROLLOUT     ?= $(MANIFESTS_DIR)/02-argo-rollout/k8s
+DIR_ROLLOUT_HDR ?= $(MANIFESTS_DIR)/03-argo-rollout-manual-beta/k8s
 
-build-01: build-app-v1 build-app-v2
-	@echo "Building AB Demo..."
-	minikube start --cpus=4 --memory=8192   
-	istioctl install --set profile=demo -y
-	# load local images into minikube
-	eval $(minikube docker-env -u)
-	minikube image load myapp:v1
-	minikube image load myapp:v2
 
-	kubectl create ns ab-demo
-	kubectl label ns ab-demo istio-injection=enabled --overwrite
-	kubectl apply -f manifests/01-manual-ab/k8s/
+# Useful stuff
 
-delete-01:
-	@echo "Deleting AB Demo..."
-	kubectl delete namespace ab-demo
-	minikube stop
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+minikube-up:
+	@minikube status >/dev/null 2>&1 || minikube start --cpus=$(MINIKUBE_CPUS) --memory=$(MINIKUBE_MEMORY)
+	@minikube status
+
+istio-install: minikube-up
+	@istioctl version --remote >/dev/null 2>&1 || istioctl install --set profile=$(ISTIO_PROFILE) -y
+
+docker-env: minikube-up ## Подключить docker-env minikube
+	@eval $$(minikube -p minikube docker-env)
+
+load-images: docker-env $(addprefix build-app-,$(VERSIONS)) ## Загрузить все образы в minikube
+	@for v in $(VERSIONS); do \
+		minikube image load $(APP_NAME):$$v; \
+	done
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Build app 
+# ──────────────────────────────────────────────────────────────────────────────
+
+.PHONY: build-app-%
+build-app-%: ## Собрать образ myapp:vX
+	@echo "Building $(APP_NAME):$* ..."
+	@cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
+
+.PHONY: build-all
+build-all: $(addprefix build-app-,$(VERSIONS)) ## Собрать все версии
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Demo 01: Manual A/B Testing
+# ──────────────────────────────────────────────────────────────────────────────
+
+01-up: build-all minikube-up istio-install load-images
+	kubectl create ns $(NS_AB) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl label ns $(NS_AB) istio-injection=enabled --overwrite
+	kubectl apply -f $(DIR_AB)
+
+01-down:
+	kubectl delete namespace $(NS_AB) --ignore-not-found=true
 
 build-02: build-app-v1 build-app-v2
 	@echo "Building Argo Rollout Demo..."
