@@ -22,7 +22,7 @@ build-01: build-app-v1 build-app-v2
 
 	kubectl create ns ab-demo
 	kubectl label ns ab-demo istio-injection=enabled --overwrite
-	kubectl apply -f 01-manual-ab/k8s/
+	kubectl apply -f manifests/01-manual-ab/k8s/
 
 delete-01:
 	@echo "Deleting AB Demo..."
@@ -45,4 +45,31 @@ build-02: build-app-v1 build-app-v2
 
 	kubectl create ns 02-rollout-demo
 	kubectl label ns 02-rollout-demo istio-injection=enabled --overwrite
-	kubectl apply -f 02-argo-rollout/k8s/
+	kubectl apply -f manifests/02-argo-rollout/k8s/
+
+build-flagger-experimental: build-app-v1 build-app-v2
+	@echo "Building Flagger Demo..."
+	minikube start --cpus=4 --memory=8192
+	istioctl install --set profile=demo -y
+	kubectl create namespace flagger
+	# kubectl apply -n flagger -f https://flagger.app/install/flagger-istio.yaml
+
+	eval $(minikube docker-env -u)
+	minikube image load myapp:v1
+	minikube image load myapp:v2
+
+	kubectl create ns 03-flagger-demo
+	kubectl label ns 03-flagger-demo istio-injection=enabled --overwrite
+	# kubectl apply -f manifests/03-flagger/k8s/
+
+build-03: build-app-v1 build-app-v2
+	@echo "Building Argo Rollout Header Split Demo..."
+	minikube start --cpus=4 --memory=8192
+	istioctl install --set profile=demo -y
+
+	eval $(minikube docker-env -u)
+	minikube image load myapp:v1
+	minikube image load myapp:v2
+
+	kubectl apply -f manifests/03-argo-rollout-manual-beta/k8s/
+

@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: myapp
+  namespace: 03-rollout-header-split-demo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: myapp:v1 # currently it's v1, but in next steps we will update it to v2
+        ports:
+        - containerPort: 8000
+  strategy:
+    canary:
+      stableService: myapp-stable
+      canaryService: myapp-canary
+      trafficRouting:
+        managedRoutes:
+          - name: beta-header
+        istio:
+          virtualServices:
+          - name: myapp
+            routes:
+            - primary   
+      steps:
+      - setCanaryScale:
+          replicas: 1
+      - setHeaderRoute:
+          name: beta-header
+          match:
+          - headerName: x-role
+            headerValue:
+              exact: "beta_tester"
+      - pause: {}
+      - setCanaryScale:
+          replicas: 3
+      - pause: {duration: 10}
+      

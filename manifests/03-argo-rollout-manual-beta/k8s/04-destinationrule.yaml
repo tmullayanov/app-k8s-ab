@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: myapp
+  namespace: 03-rollout-header-split-demo
+spec:
+  host: myapp.03-rollout-header-split-demo.svc.cluster.local
+  subsets:
+  - name: stable
+    labels:
+      app: myapp
+  - name: canary
+    labels:
+      app: myapp

@@ -29,7 +29,7 @@ spec:
             routes:
             - primary               # must match the name in VirtualService's http.route.name
       steps:
-      - setWeight: 5
+      - setWeight: 5 # 5% of traffic routed to canary.
       - pause: {duration: 10} # 10 seconds for demo purposes, but in real life it should be much longer (e.g. 1 hour) to collect enough metrics and make sure that the new version is stable
       - setWeight: 100
       
