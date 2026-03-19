@@ -47,6 +47,11 @@ build-02: build-app-v1 build-app-v2
 	kubectl label ns 02-rollout-demo istio-injection=enabled --overwrite
 	kubectl apply -f manifests/02-argo-rollout/k8s/
 
+delete-02:
+	@echo "Deleting Argo Rollout Demo..."
+	kubectl delete namespace 02-rollout-demo
+	minikube stop
+
 build-flagger-experimental: build-app-v1 build-app-v2
 	@echo "Building Flagger Demo..."
 	minikube start --cpus=4 --memory=8192
@@ -73,3 +78,7 @@ build-03: build-app-v1 build-app-v2
 
 	kubectl apply -f manifests/03-argo-rollout-manual-beta/k8s/
 
+delete-03:
+	@echo "Deleting Argo Rollout Header Split Demo..."
+	kubectl delete namespace 03-rollout-header-split-demo
+	minikube stop
