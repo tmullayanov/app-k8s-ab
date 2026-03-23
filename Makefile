@@ -21,16 +21,16 @@ DIR_ROLLOUT_HDR ?= $(MANIFESTS_DIR)/03-argo-rollout-manual-beta/k8s
 
 .PHONY: help
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-minikube-up:
+minikube-up: ## up minikube if not running. Runs with default profile and default driver
 	@minikube status >/dev/null 2>&1 || minikube start --cpus=$(MINIKUBE_CPUS) --memory=$(MINIKUBE_MEMORY)
 	@minikube status
 
-istio-install: minikube-up
+istio-install: minikube-up ## Install Istio if not installed
 	@istioctl version --remote >/dev/null 2>&1 || istioctl install --set profile=$(ISTIO_PROFILE) -y
 
-docker-env: minikube-up ## Подключить docker-env minikube
+docker-env: minikube-up 
 	@eval $$(minikube -p minikube docker-env)
 
 load-images: docker-env $(addprefix build-app-,$(VERSIONS)) ## Загрузить все образы в minikube
@@ -48,18 +48,18 @@ build-app-%: ## Собрать образ myapp:vX
 	@cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
 
 .PHONY: build-all
-build-all: $(addprefix build-app-,$(VERSIONS)) ## Собрать все версии
+build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Demo 01: Manual A/B Testing
 # ──────────────────────────────────────────────────────────────────────────────
 
-01-up: build-all minikube-up istio-install load-images
+01-up: build-all minikube-up istio-install load-images ## Deploy A/B Testing Demo.
 	kubectl create ns $(NS_AB) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_AB) istio-injection=enabled --overwrite
 	kubectl apply -f $(DIR_AB)
 
-01-down:
+01-down: ## Delete A/B Testing Demo.
 	kubectl delete namespace $(NS_AB) --ignore-not-found=true
 
 build-02: build-app-v1 build-app-v2
