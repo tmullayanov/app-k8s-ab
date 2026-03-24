@@ -7,8 +7,8 @@ ISTIO_PROFILE   ?= demo
 
 # Namespaces
 NS_AB               ?= ab-demo
-NS_ROLLOUT          ?= rollout-demo
-NS_ROLLOUT_HEADER   ?= rollout-header-demo
+NS_ROLLOUT          ?= 02-rollout-demo
+NS_ROLLOUT_HEADER   ?= 03-rollout-header-split-demo
 
 # Paths to yamls
 MANIFESTS_DIR   ?= manifests
@@ -34,21 +34,16 @@ install-rollouts:
 	kubectl create ns argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
 
-install-vmetrics:
-	helm repo add vm https://victoriametrics.github.io/helm-charts/
-	helm repo update
-	helm install monitoring vm/victoria-metrics-k8s-stack --set victoria-metrics-operator.admissionWebhooks.enabled=false
-
-
-one-time-setup: minikube-up istio-install install-rollouts install-vmetrics ## One time setup for demos (minikube + istio + argo rollouts)
+one-time-setup: minikube-up istio-install install-rollouts ## One time setup for demos (minikube + istio + argo rollouts)
 	@echo "One-time setup completed. You can now run 'make 0X-XX' to deploy the demos. Refer to `make help` for more details."
 
 docker-env: minikube-up 
-	@eval $$(minikube -p minikube docker-env)
+	@eval $$(minikube docker-env)
 
 load-images: docker-env $(addprefix build-app-,$(VERSIONS)) ## Загрузить все образы в minikube
 	@for v in $(VERSIONS); do \
-		minikube image load $(APP_NAME):$$v; \
+		minikube image rm $(APP_NAME):$$v || true; \
+		minikube image load $(APP_NAME):$$v --overwrite=true; \
 	done
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -70,6 +65,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 01-up: build-all minikube-up istio-install load-images ## Deploy A/B Testing Demo.
 	kubectl create ns $(NS_AB) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_AB) istio-injection=enabled --overwrite
+	kubectl delete -f $(DIR_AB) --ignore-not-found=true
 	kubectl apply -f $(DIR_AB)
 
 01-down: ## Delete A/B Testing Demo.
@@ -78,6 +74,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 02-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts demo
 	kubectl create ns $(NS_ROLLOUT) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_ROLLOUT) istio-injection=enabled --overwrite
+	kubectl delete -f $(DIR_ROLLOUT) --ignore-not-found=true
 	kubectl apply -f $(DIR_ROLLOUT)
 
 02-down: ## Delete Argo Rollouts demo
@@ -86,6 +83,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 03-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts header split demo
 	kubectl create ns $(NS_ROLLOUT_HEADER) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_ROLLOUT_HEADER) istio-injection=enabled --overwrite
+	kubectl delete -f $(DIR_ROLLOUT_HDR) --ignore-not-found=true
 	kubectl apply -f $(DIR_ROLLOUT_HDR)
 
 03-down: ## Delete header-based demo
