@@ -30,6 +30,19 @@ minikube-up: ## up minikube if not running. Runs with default profile and defaul
 istio-install: minikube-up ## Install Istio if not installed
 	@istioctl version --remote >/dev/null 2>&1 || istioctl install --set profile=$(ISTIO_PROFILE) -y
 
+install-rollouts:
+	kubectl create ns argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+install-vmetrics:
+	helm repo add vm https://victoriametrics.github.io/helm-charts/
+	helm repo update
+	helm install monitoring vm/victoria-metrics-k8s-stack --set victoria-metrics-operator.admissionWebhooks.enabled=false
+
+
+one-time-setup: minikube-up istio-install install-rollouts install-vmetrics ## One time setup for demos (minikube + istio + argo rollouts)
+	@echo "One-time setup completed. You can now run 'make 0X-XX' to deploy the demos. Refer to `make help` for more details."
+
 docker-env: minikube-up 
 	@eval $$(minikube -p minikube docker-env)
 
@@ -62,29 +75,23 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 01-down: ## Delete A/B Testing Demo.
 	kubectl delete namespace $(NS_AB) --ignore-not-found=true
 
-build-02: build-app-v1 build-app-v2
-	@echo "Building Argo Rollout Demo..."
-	minikube start --cpus=4 --memory=8192
-	istioctl install --set profile=demo -y
-	kubectl create namespace argo-rollouts
-	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+02-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts demo
+	kubectl create ns $(NS_ROLLOUT) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl label ns $(NS_ROLLOUT) istio-injection=enabled --overwrite
+	kubectl apply -f $(DIR_ROLLOUT)
 
-	
-	eval $(minikube docker-env -u)
-	minikube image load myapp:v1
-	minikube image load myapp:v2
+02-down: ## Delete Argo Rollouts demo
+	kubectl delete ns $(NS_ROLLOUT) --ignore-not-found=true
 
+03-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts header split demo
+	kubectl create ns $(NS_ROLLOUT_HEADER) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl label ns $(NS_ROLLOUT_HEADER) istio-injection=enabled --overwrite
+	kubectl apply -f $(DIR_ROLLOUT_HDR)
 
-	kubectl create ns 02-rollout-demo
-	kubectl label ns 02-rollout-demo istio-injection=enabled --overwrite
-	kubectl apply -f manifests/02-argo-rollout/k8s/
+03-down: ## Delete header-based demo
+	kubectl delete ns $(NS_ROLLOUT_HEADER) --ignore-not-found=true
 
-delete-02:
-	@echo "Deleting Argo Rollout Demo..."
-	kubectl delete namespace 02-rollout-demo
-	minikube stop
-
-build-flagger-experimental: build-app-v1 build-app-v2
+UNSTABLE_build-flagger-experimental: build-app-v1 build-app-v2
 	@echo "Building Flagger Demo..."
 	minikube start --cpus=4 --memory=8192
 	istioctl install --set profile=demo -y
@@ -98,19 +105,3 @@ build-flagger-experimental: build-app-v1 build-app-v2
 	kubectl create ns 03-flagger-demo
 	kubectl label ns 03-flagger-demo istio-injection=enabled --overwrite
 	# kubectl apply -f manifests/03-flagger/k8s/
-
-build-03: build-app-v1 build-app-v2
-	@echo "Building Argo Rollout Header Split Demo..."
-	minikube start --cpus=4 --memory=8192
-	istioctl install --set profile=demo -y
-
-	eval $(minikube docker-env -u)
-	minikube image load myapp:v1
-	minikube image load myapp:v2
-
-	kubectl apply -f manifests/03-argo-rollout-manual-beta/k8s/
-
-delete-03:
-	@echo "Deleting Argo Rollout Header Split Demo..."
-	kubectl delete namespace 03-rollout-header-split-demo
-	minikube stop
