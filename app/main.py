@@ -2,39 +2,55 @@ from typing import Annotated
 
 from fastapi import FastAPI, Header, Request
 from prometheus_client import CollectorRegistry, Counter, generate_latest
+from pydantic import BaseModel
 from starlette.responses import Response
 import os
 
 app = FastAPI(title="A/B Test Service")
 
-my_registry = CollectorRegistry()
-bad_responses = Counter("bad_responses", "Total number of bad requests", registry=my_registry)
-total_responses = Counter("total_responses", "Total number of responses", registry=my_registry)
 
-def roll_dice_for_version(version: str) -> bool:
+# custom metrics.
+my_registry = CollectorRegistry()
+bad_responses = Counter("bad_responses", "Total number of bad requests", labelnames=["version"], registry=my_registry)
+total_responses = Counter("total_responses", "Total number of responses", labelnames=["version"], registry=my_registry)
+
+# Response
+class ResponseModel(BaseModel):
+    message: str
+    version: str
+    beta_tester: bool
+
+
+def is_bad_response(version: str) -> bool:
     # Simulate a dice roll to determine if the request should be considered "bad" for demonstration purposes
     import random
     version_no = int(version.lstrip("v")) if version.startswith("v") and version[1:].isdigit() else 0
     if version_no >= 2:
-        return random.random() < 0.5  # 50% chance of being a bad response for v2 and above
+        return random.random() < 0.3  # 30% chance of being a bad response for v2 and above
     return False
 
 @app.get("/")
-async def root(req: Request, x_role: Annotated[str | None, Header()] = None):
+async def root(req: Request, x_role: Annotated[str | None, Header()] = None) -> ResponseModel:
     version = os.getenv("APP_VERSION", "not set")
     print(f"Headers: {req.headers}") # simple prints instead of loguru/structlog for simplicity
     print(f"X-Role: {x_role}")
 
     is_beta_tester = x_role == "beta_tester"
+    total_responses.labels(version=version).inc()
 
+    if is_bad_response(version):
+        bad_responses.labels(version=version).inc()
+        return ResponseModel(
+            message="Bad response",
+            version=version,
+            beta_tester=is_beta_tester
+        )
 
-
-    total_responses.inc()
-    return {
-        "message": f"Hello from version {version} 🎉",
-        "version": version,
-        "beta_tester": is_beta_tester
-    }
+    return ResponseModel(
+        message=f"Hello from version {version} 🎉",
+        version=version,
+        beta_tester=is_beta_tester
+    )
 
 @app.get("/health")
 async def health():
