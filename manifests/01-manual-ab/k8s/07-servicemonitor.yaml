@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: myapp
+  name: myapp-simple
   namespace: ab-demo
   labels:
     release: prometheus-stack
@@ -15,4 +15,4 @@ spec:
   endpoints:
     - port: http
       path: /metrics
-      interval: 10s
+      interval: 15s
