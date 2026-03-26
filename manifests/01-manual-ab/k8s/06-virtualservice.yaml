@@ -5,7 +5,7 @@ metadata:
   namespace: ab-demo
 spec:
   hosts:
-  - "myapp.local"
+  - "myapp.01.local"
   gateways:
   - myapp-gateway
   http:

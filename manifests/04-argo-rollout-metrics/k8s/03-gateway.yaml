@@ -12,4 +12,4 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "myapp.rollout.split.metrics.local"
+    - "myapp.04.local"

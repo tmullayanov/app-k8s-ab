@@ -5,7 +5,7 @@ metadata:
   namespace: 02-rollout-demo
 spec:
   hosts:
-  - "myapp.rollout.local"
+  - "myapp.02.local"
   gateways:
   - myapp-rollout-gateway
   http:
