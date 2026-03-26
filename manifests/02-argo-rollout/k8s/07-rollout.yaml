@@ -12,10 +12,14 @@ spec:
     metadata:
       labels:
         app: myapp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: myapp
-        image: myapp:v2 # currently it's v1, but in next steps we will update it to v2
+        image: myapp:v1 # change to v2 and apply to rollout.
         ports:
         - containerPort: 8000
   strategy:
@@ -29,7 +33,7 @@ spec:
             routes:
             - primary               # must match the name in VirtualService's http.route.name
       steps:
-      - setWeight: 5 # 5% of traffic routed to canary.
-      - pause: {duration: 10} # 10 seconds for demo purposes, but in real life it should be much longer (e.g. 1 hour) to collect enough metrics and make sure that the new version is stable
+      - setWeight: 5 # 5% of traffic routed to canary. Alternative: setCanaryScale: {replicas: 1}
+      - pause: {duration: 60} # 60 seconds for demo purposes, but in real life it should be much longer (e.g. 1 hour) to collect enough metrics and make sure that the new version is stable
       - setWeight: 100
       
