@@ -25,8 +25,8 @@ def is_bad_response(version: str) -> bool:
     # Simulate a dice roll to determine if the request should be considered "bad" for demonstration purposes
     import random
     version_no = int(version.lstrip("v")) if version.startswith("v") and version[1:].isdigit() else 0
-    if version_no >= 2:
-        return random.random() < 0.3  # 30% chance of being a bad response for v2 and above
+    if version_no == 2:
+        return random.random() < 0.3  # 30% chance of being a bad response for v2
     return False
 
 @app.get("/")
