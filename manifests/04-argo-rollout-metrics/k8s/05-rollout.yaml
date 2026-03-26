@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: myapp
+  namespace: 04-argo-rollout-metrics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: myapp
+        image: myapp:v2 # currently it's v1, but in next steps we will update it to v2
+        ports:
+        - containerPort: 8000
+  strategy:
+    canary:
+      stableService: myapp-stable
+      canaryService: myapp-canary
+      trafficRouting:
+        managedRoutes:
+          - name: beta-header
+        istio:
+          virtualServices:
+          - name: myapp
+            routes:
+            - primary   
+      steps:
+      - setCanaryScale:
+          replicas: 1
+      - setHeaderRoute:
+          name: beta-header
+          match:
+          - headerName: x-role
+            headerValue:
+              exact: "beta_tester"
+      - analysis:
+          templates:
+          - templateName: error-rate-check
+          args:
+          - name: stable-hash
+            valueFrom:
+              podTemplateHashValue: Stable
+          - name: canary-hash
+            valueFrom:
+              podTemplateHashValue: Canary
+      - pause: {}
+      - setCanaryScale:
+          replicas: 2
+      - pause: {duration: 10}
+      

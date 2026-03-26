@@ -1,6 +1,6 @@
 # General variables
 APP_NAME        ?= myapp
-VERSIONS        ?= v1 v2
+VERSIONS        ?= v1 v2 v3
 MINIKUBE_CPUS   ?= 4
 MINIKUBE_MEMORY ?= 8192
 ISTIO_PROFILE   ?= demo
@@ -9,12 +9,15 @@ ISTIO_PROFILE   ?= demo
 NS_AB               ?= ab-demo
 NS_ROLLOUT          ?= 02-rollout-demo
 NS_ROLLOUT_HEADER   ?= 03-rollout-header-split-demo
+NS_ROLLOUT_METRICS  ?= 04-argo-rollout-metrics
 
 # Paths to yamls
-MANIFESTS_DIR   ?= manifests
-DIR_AB          ?= $(MANIFESTS_DIR)/01-manual-ab/k8s
-DIR_ROLLOUT     ?= $(MANIFESTS_DIR)/02-argo-rollout/k8s
-DIR_ROLLOUT_HDR ?= $(MANIFESTS_DIR)/03-argo-rollout-manual-beta/k8s
+MANIFESTS_DIR   	?= manifests
+DIR_AB          	?= $(MANIFESTS_DIR)/01-manual-ab/k8s
+DIR_ROLLOUT     	?= $(MANIFESTS_DIR)/02-argo-rollout/k8s
+DIR_ROLLOUT_HDR 	?= $(MANIFESTS_DIR)/03-argo-rollout-manual-beta/k8s
+DIR_ROLLOUT_METRICS ?= $(MANIFESTS_DIR)/04-argo-rollout-metrics/k8s
+
 
 
 # Useful stuff
@@ -51,7 +54,7 @@ load-images: docker-env $(addprefix build-app-,$(VERSIONS)) ## Загрузит�
 # ──────────────────────────────────────────────────────────────────────────────
 
 .PHONY: build-app-%
-build-app-%: ## Собрать образ myapp:vX
+build-app-%: docker-env## Собрать образ myapp:vX
 	@echo "Building $(APP_NAME):$* ..."
 	@cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
 
@@ -88,6 +91,18 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 
 03-down: ## Delete header-based demo
 	kubectl delete ns $(NS_ROLLOUT_HEADER) --ignore-not-found=true
+
+04-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts metrics demo
+	kubectl create ns $(NS_ROLLOUT_METRICS) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl label ns $(NS_ROLLOUT_METRICS) istio-injection=enabled --overwrite
+	kubectl delete -f $(DIR_ROLLOUT_METRICS) --ignore-not-found=true
+	kubectl apply -f $(DIR_ROLLOUT_METRICS)
+
+04-down: ## Delete metrics-based demo
+	kubectl delete ns $(NS_ROLLOUT_METRICS) --ignore-not-found=true
+
+all-down: 01-down 02-down 03-down 04-down ## Delete all demos
+
 
 UNSTABLE_build-flagger-experimental: build-app-v1 build-app-v2
 	@echo "Building Flagger Demo..."
