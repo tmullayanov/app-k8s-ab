@@ -101,6 +101,9 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 04-down: ## Delete metrics-based demo
 	kubectl delete ns $(NS_ROLLOUT_METRICS) --ignore-not-found=true
 
+04-watch:
+	kubectl argo rollouts get rollout myapp -n $(NS_ROLLOUT_METRICS) --watch
+
 all-down: 01-down 02-down 03-down 04-down ## Delete all demos
 
 
