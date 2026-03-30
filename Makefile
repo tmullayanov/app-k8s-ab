@@ -37,7 +37,13 @@ install-rollouts:
 	kubectl create ns argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
 
-one-time-setup: minikube-up istio-install install-rollouts ## One time setup for demos (minikube + istio + argo rollouts)
+install-prometheus:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
+	helm install prometheus-stack prometheus-community/kube-prometheus-stack
+
+
+one-time-setup: minikube-up istio-install install-rollouts install-prometheus ## One time setup for demos (minikube + istio + argo rollouts)
 	@echo "One-time setup completed. You can now run 'make 0X-XX' to deploy the demos. Refer to `make help` for more details."
 
 docker-env: minikube-up 
@@ -80,6 +86,12 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 	kubectl delete -f $(DIR_ROLLOUT) --ignore-not-found=true
 	kubectl apply -f $(DIR_ROLLOUT)
 
+02-deploy-v2: ## Deploy version 2 of the app in Argo Rollouts demo
+	kubectl argo rollouts set image myapp myapp=myapp:v2 -n $(NS_ROLLOUT)
+
+02-watch: ## Watch the Argo Rollouts demo rollout status
+	kubectl argo rollouts get rollout myapp -n $(NS_ROLLOUT) --watch
+
 02-down: ## Delete Argo Rollouts demo
 	kubectl delete ns $(NS_ROLLOUT) --ignore-not-found=true
 
@@ -88,6 +100,15 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 	kubectl label ns $(NS_ROLLOUT_HEADER) istio-injection=enabled --overwrite
 	kubectl delete -f $(DIR_ROLLOUT_HDR) --ignore-not-found=true
 	kubectl apply -f $(DIR_ROLLOUT_HDR)
+
+03-deploy-v2: ## Deploy version 2 of the app in Argo Rollouts header split demo
+	kubectl argo rollouts set image myapp myapp=myapp:v2 -n $(NS_ROLLOUT_HEADER)
+
+03-promote-deploy: ## Promote deploy the Argo Rollouts header split demo to the next step (if it's paused)
+	kubectl argo rollouts promote myapp -n $(NS_ROLLOUT_HEADER)
+
+03-watch: ## Watch the Argo Rollouts header split demo rollout status
+	kubectl argo rollouts get rollout myapp -n $(NS_ROLLOUT_HEADER) --watch
 
 03-down: ## Delete header-based demo
 	kubectl delete ns $(NS_ROLLOUT_HEADER) --ignore-not-found=true
@@ -98,11 +119,21 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 	kubectl delete -f $(DIR_ROLLOUT_METRICS) --ignore-not-found=true
 	kubectl apply -f $(DIR_ROLLOUT_METRICS)
 
+04-deploy-v2: ## Deploy version 2 of the app in Argo Rollouts metrics demo
+	kubectl argo rollouts set image myapp myapp=myapp:v2 -n $(NS_ROLLOUT_METRICS)
+
+04-deploy-v3: ## Deploy version 3 of the app in Argo Rollouts metrics demo
+	kubectl argo rollouts set image myapp myapp=myapp:v3 -n $(NS_ROLLOUT_METRICS)
+
+04-promote-deploy: ## Promote deploy the Argo Rollouts metrics demo to the next step (if it's paused)
+	kubectl argo rollouts promote myapp -n $(NS_ROLLOUT_METRICS)
+
+04-watch: ## Watch the Argo Rollouts metrics demo rollout status
+	kubectl argo rollouts get rollout myapp -n $(NS_ROLLOUT_METRICS) --watch
+
 04-down: ## Delete metrics-based demo
 	kubectl delete ns $(NS_ROLLOUT_METRICS) --ignore-not-found=true
 
-04-watch:
-	kubectl argo rollouts get rollout myapp -n $(NS_ROLLOUT_METRICS) --watch
 
 all-down: 01-down 02-down 03-down 04-down ## Delete all demos
 
