@@ -24,13 +24,42 @@ DIR_ROLLOUT_METRICS ?= $(MANIFESTS_DIR)/04-argo-rollout-metrics/k8s
 
 .PHONY: help
 help:
-	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Variables:"
+	@echo "  K8S_PLATFORM       Platform: minikube|docker-desktop|auto (default: auto)"
+	@echo "  APP_NAME           Application name (default: myapp)"
+	@echo "  VERSIONS           Space-separated app versions (default: v1 v2 v3)"
 
-minikube-up: ## up minikube if not running. Runs with default profile and default driver
+.PHONY: check-deps
+check-deps: ## Check required tools are installed
+	@command -v kubectl >/dev/null 2>&1 || { echo "❌ kubectl not found"; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "❌ docker not found"; exit 1; }
+	@command -v istioctl >/dev/null 2>&1 || { echo "❌ istioctl not found"; exit 1; }
+	@command -v helm >/dev/null 2>&1 || { echo "❌ helm not found"; exit 1; }
+ifeq ($(K8S_PLATFORM),minikube)
+	@command -v minikube >/dev/null 2>&1 || { echo "❌ minikube not found"; exit 1; }
+endif
+	@echo "✓ All dependencies satisfied"
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Platform abstraction
+# ──────────────────────────────────────────────────────────────────────────────
+
+.PHONY: k8s-ensure-running
+k8s-ensure-running: ## Ensure Kubernetes cluster is running (platform-aware)
+ifeq ($(K8S_PLATFORM),minikube)
 	@minikube status >/dev/null 2>&1 || minikube start --cpus=$(MINIKUBE_CPUS) --memory=$(MINIKUBE_MEMORY)
 	@minikube status
+else ifeq ($(K8S_PLATFORM),docker-desktop)
+	@echo "✓ Using Docker Desktop Kubernetes. Please ensure it's enabled in Docker Desktop settings."
+	@kubectl cluster-info >/dev/null 2>&1 || (echo "❌ Kubernetes not accessible. Is Docker Desktop running?" && exit 1)
+else
+	@echo "⚠ Unknown platform '$(K8S_PLATFORM)'. Assuming kubectl is configured."
+	@kubectl cluster-info >/dev/null 2>&1 || (echo "❌ Cannot reach Kubernetes cluster" && exit 1)
+endif
 
-istio-install: minikube-up ## Install Istio if not installed
+install-istio: k8s-ensure-running ## Install Istio if not installed
 	@istioctl version --remote >/dev/null 2>&1 || istioctl install --set profile=$(ISTIO_PROFILE) -y
 
 install-rollouts:
@@ -43,35 +72,44 @@ install-prometheus:
 	helm install prometheus-stack prometheus-community/kube-prometheus-stack
 
 
-one-time-setup: minikube-up istio-install install-rollouts install-prometheus ## One time setup for demos (minikube + istio + argo rollouts)
+one-time-setup: check-deps k8s-ensure-running install-istio install-rollouts install-prometheus ## One time setup for demos (minikube + istio + argo rollouts)
 	@echo "One-time setup completed. You can now run 'make 0X-XX' to deploy the demos. Refer to `make help` for more details."
 
-docker-env: minikube-up 
-	@eval $$(minikube docker-env)
 
-load-images: docker-env $(addprefix build-app-,$(VERSIONS)) ## Загрузить все образы в minikube
+load-images: $(addprefix build-app-,$(VERSIONS)) # Old target, deprecated in favor of building inside minikube.
+ifeq ($(K8S_PLATFORM),minikube)
 	@for v in $(VERSIONS); do \
 		minikube image rm $(APP_NAME):$$v || true; \
 		minikube image load $(APP_NAME):$$v --overwrite=true; \
 	done
+else
+	@# Docker Desktop: images built locally are automatically visible to k8s
+	@echo "✓ Image $(IMAGE) is already available to Kubernetes (Docker Desktop)"
+endif
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Build app 
 # ──────────────────────────────────────────────────────────────────────────────
 
 .PHONY: build-app-%
-build-app-%: docker-env## Собрать образ myapp:vX
-	@echo "Building $(APP_NAME):$* ..."
-	@cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
+build-app-%: ## Build image myapp:vX (auto-detects platform)
+ifeq ($(K8S_PLATFORM),minikube)
+	@eval $$(minikube docker-env) && \
+	echo "→ Building $(APP_NAME):$* in Minikube..." && \
+	cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
+else
+	@echo "→ Building $(APP_NAME):$* (Docker Desktop)..." && \
+	cd app && docker build --build-arg APP_VERSION=$* -t $(APP_NAME):$* .
+endif
 
 .PHONY: build-all
-build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
+build-all: $(addprefix build-app-,$(VERSIONS)) ## Build all versions
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  Demo 01: Manual A/B Testing
+#  Demo targets
 # ──────────────────────────────────────────────────────────────────────────────
 
-01-up: build-all minikube-up istio-install load-images ## Deploy A/B Testing Demo.
+01-up: k8s-ensure-running build-all ## Deploy A/B Testing Demo.
 	kubectl create ns $(NS_AB) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_AB) istio-injection=enabled --overwrite
 	kubectl delete -f $(DIR_AB) --ignore-not-found=true
@@ -80,7 +118,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 01-down: ## Delete A/B Testing Demo.
 	kubectl delete namespace $(NS_AB) --ignore-not-found=true
 
-02-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts demo
+02-up: k8s-ensure-running build-all ## Deploy Argo Rollouts demo
 	kubectl create ns $(NS_ROLLOUT) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_ROLLOUT) istio-injection=enabled --overwrite
 	kubectl delete -f $(DIR_ROLLOUT) --ignore-not-found=true
@@ -95,7 +133,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 02-down: ## Delete Argo Rollouts demo
 	kubectl delete ns $(NS_ROLLOUT) --ignore-not-found=true
 
-03-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts header split demo
+03-up: k8s-ensure-running build-all ## Deploy Argo Rollouts header split demo
 	kubectl create ns $(NS_ROLLOUT_HEADER) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_ROLLOUT_HEADER) istio-injection=enabled --overwrite
 	kubectl delete -f $(DIR_ROLLOUT_HDR) --ignore-not-found=true
@@ -113,7 +151,7 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 03-down: ## Delete header-based demo
 	kubectl delete ns $(NS_ROLLOUT_HEADER) --ignore-not-found=true
 
-04-up: build-all minikube-up istio-install load-images ## Deploy Argo Rollouts metrics demo
+04-up: k8s-ensure-running build-all ## Deploy Argo Rollouts metrics demo
 	kubectl create ns $(NS_ROLLOUT_METRICS) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label ns $(NS_ROLLOUT_METRICS) istio-injection=enabled --overwrite
 	kubectl delete -f $(DIR_ROLLOUT_METRICS) --ignore-not-found=true
@@ -138,17 +176,15 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## build all versions
 all-down: 01-down 02-down 03-down 04-down ## Delete all demos
 
 
-UNSTABLE_build-flagger-experimental: build-app-v1 build-app-v2
-	@echo "Building Flagger Demo..."
-	minikube start --cpus=4 --memory=8192
-	istioctl install --set profile=demo -y
-	kubectl create namespace flagger
-	# kubectl apply -n flagger -f https://flagger.app/install/flagger-istio.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+#  Convenience targets for specific platforms
+# ──────────────────────────────────────────────────────────────────────────────
 
-	eval $(minikube docker-env -u)
-	minikube image load myapp:v1
-	minikube image load myapp:v2
+minikube: ## Run demos on Minikube (sets K8S_PLATFORM=minikube)
+	@$(MAKE) K8S_PLATFORM=minikube $(filter-out $@,$(MAKECMDGOALS))
 
-	kubectl create ns 03-flagger-demo
-	kubectl label ns 03-flagger-demo istio-injection=enabled --overwrite
-	# kubectl apply -f manifests/03-flagger/k8s/
+docker-desktop: ## Run demos on Docker Desktop K8s (sets K8S_PLATFORM=docker-desktop)
+	@$(MAKE) K8S_PLATFORM=docker-desktop $(filter-out $@,$(MAKECMDGOALS))
+
+%:
+	@:
