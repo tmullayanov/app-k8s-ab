@@ -11,9 +11,10 @@ spec:
   metrics:
   - name: error-rate
     interval: 30s
-    count: 3
-    successCondition: len(result) > 0 && result[0] < 0.05
+    count: 6
+    successCondition: (len(result) > 0) && (result[0] < 0.05)
     failureLimit: 3
+    initialDelay: 30s
 
     provider:
       prometheus:
@@ -21,10 +22,14 @@ spec:
         query: |
           (
             sum without(service, job) (
-              rate(bad_responses_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[1m])
+              rate(bad_responses_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[30s])
             )
-            /
+            or on() vector(0)
+          )
+          / on()
+          clamp_min(
             sum without(service, job) (
-              rate(total_responses_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[1m])
-            )
+              rate(total_responses_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[30s])
+            ),
+            1
           )
