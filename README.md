@@ -24,7 +24,8 @@ make check-deps
 
 ```bash
 make one-time-setup
-# make docker-desktop one-time-setup for Docker Desktop setups
+# or
+make docker-desktop one-time-setup # for Docker Desktop setups
 ```
 
 Installs: Istio, Argo Rollouts, Prometheus Stack
