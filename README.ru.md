@@ -31,17 +31,26 @@ make one-time-setup
 ### 3. Запуск демо
 
 ```bash
-# Демо 01: Manual A/B Testing
+# Demo 01: Ручное управление трафиком через Virtual Service
 make 01-up
+# or 
+make docker-desktop 01-up # for Docker Desktop k8s
 
-# Демо 02: Argo Rollouts (canary)
+# Demo 02: Argo Rollouts (canary)
 make 02-up
+# or 
+make docker-desktop 02-up # for Docker Desktop k8s
 
-# Демо 03: Header-based splitting
+# Demo 03: Разделение по заголовку через Argo Rollouts
 make 03-up
+# or 
+make docker-desktop 03-up # for Docker Desktop k8s
 
-# Демо 04: Metrics-based rollouts
+
+# Demo 04: Роллаут на основе метрик и заголовков через Argo Rollouts
 make 04-up
+# or 
+make docker-desktop 04-up # for Docker Desktop k8s
 ```
 
 ### 4. Очистка
@@ -128,7 +137,6 @@ make help              # Показать все доступные таргет
 make check-deps        # Проверить установленные зависимости
 make one-time-setup    # Установить все компоненты (Istio, Argo, Prometheus)
 make build-all         # Собрать все версии приложения (v1, v2, v3)
-make load-images       # Загрузить образы в кластер
 make all-down          # Удалить все демо-неймспейсы
 ```
 

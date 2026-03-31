@@ -33,7 +33,7 @@ help:
 	@echo "  VERSIONS           Space-separated app versions (default: v1 v2 v3)"
 
 .PHONY: check-deps
-check-deps: ## Check required tools are installed
+check-deps: ## Check required tools are installed (macos/linux only, requires `command` builtin)
 	@command -v kubectl >/dev/null 2>&1 || { echo "❌ kubectl not found"; exit 1; }
 	@command -v docker >/dev/null 2>&1 || { echo "❌ docker not found"; exit 1; }
 	@command -v istioctl >/dev/null 2>&1 || { echo "❌ istioctl not found"; exit 1; }
@@ -63,11 +63,11 @@ endif
 install-istio: k8s-ensure-running ## Install Istio if not installed
 	@istioctl version --remote >/dev/null 2>&1 || istioctl install --set profile=$(ISTIO_PROFILE) -y
 
-install-rollouts:
+install-rollouts: ## Install Argo Rollouts into the cluster
 	kubectl create ns argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
 
-install-prometheus:
+install-prometheus: ## Install kube-prometheus-stack (Prometheus + Grafana) using Helm
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install prometheus-stack prometheus-community/kube-prometheus-stack
