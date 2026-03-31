@@ -4,6 +4,7 @@ VERSIONS        ?= v1 v2 v3
 MINIKUBE_CPUS   ?= 4
 MINIKUBE_MEMORY ?= 8192
 ISTIO_PROFILE   ?= demo
+K8S_PLATFORM    ?= minikube
 
 # Namespaces
 NS_AB               ?= ab-demo
