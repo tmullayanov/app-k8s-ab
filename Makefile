@@ -176,17 +176,3 @@ build-all: $(addprefix build-app-,$(VERSIONS)) ## Build all versions
 
 
 all-down: 01-down 02-down 03-down 04-down ## Delete all demos
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-#  Convenience targets for specific platforms
-# ──────────────────────────────────────────────────────────────────────────────
-
-minikube: ## Run demos on Minikube (sets K8S_PLATFORM=minikube)
-	@$(MAKE) K8S_PLATFORM=minikube $(filter-out $@,$(MAKECMDGOALS))
-
-docker-desktop: ## Run demos on Docker Desktop K8s (sets K8S_PLATFORM=docker-desktop)
-	@$(MAKE) K8S_PLATFORM=docker-desktop $(filter-out $@,$(MAKECMDGOALS))
-
-%:
-	@:

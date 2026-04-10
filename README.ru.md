@@ -120,7 +120,7 @@ Makefile автоматически определяет платформу. П�
 |-----------|---------|
 | Minikube (авто) | `make 01-up` |
 | Minikube (явно) | `make minikube 01-up` |
-| Docker Desktop | `make docker-desktop 01-up` |
+| Docker Desktop | `make K8S_PLATFORM=docker-desktop 01-up` |
 | Явно указать | `make K8S_PLATFORM=minikube 01-up` |
 
 ## 🎯 Описание демо
