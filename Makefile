@@ -66,6 +66,7 @@ install-istio: k8s-ensure-running ## Install Istio if not installed
 install-rollouts: ## Install Argo Rollouts into the cluster
 	kubectl create ns argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+	kubectl argo rollouts version >/dev/null 2>&1 || (echo "❌ Error. Please refer to https://argo-rollouts.readthedocs.io/en/stable/installation/#manual" && exit 1)
 
 install-prometheus: ## Install kube-prometheus-stack (Prometheus + Grafana) using Helm
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
